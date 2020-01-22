@@ -7,9 +7,11 @@ import (
     "github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 )
 
+// Declaring a new DynamoDB instance. This is safe for concurrent use.
 var db = dynamodb.New(session.New(), aws.NewConfig().WithRegion("us-east-1"))
 
 func getItem(name string) (*book, error) {
+    // Preparing the input for the query.
     input := &dynamodb.GetItemInput{
         TableName: aws.String("Scratchers"),
         Key: map[string]*dynamodb.AttributeValue{
@@ -18,6 +20,7 @@ func getItem(name string) (*book, error) {
             },
         },
     }
+    // Retrieving the item from DynamoDB. If no matching item is found, return nil.
     result, err := db.GetItem(input)
     if err != nil {
         return nil, err
@@ -25,6 +28,9 @@ func getItem(name string) (*book, error) {
     if result.Item == nil {
         return nil, nil
     }
+
+    // The result.Item object returned has the underlying type map[string]*AttributeValue. 
+    //Using the UnmarshalMap helper to parse this straight into the fields of a struct. 
     bk := new(book)
     err = dynamodbattribute.UnmarshalMap(result.Item, bk)
     if err != nil {
@@ -33,7 +39,7 @@ func getItem(name string) (*book, error) {
     return bk, nil
 }
 
-// Add a book record to DynamoDB.
+// Adding a book record to DynamoDB.
 func putItem(bk *book) error {
     input := &dynamodb.PutItemInput{
         TableName: aws.String("Scratchers"),

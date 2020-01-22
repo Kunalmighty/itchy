@@ -6,12 +6,11 @@ import (
     "log"
     "net/http"
     "os"
-    //"regexp"
     "github.com/aws/aws-lambda-go/events"
     "github.com/aws/aws-lambda-go/lambda"
 )
 
-//var nameRegexp = regexp.MustCompile(`[0-9]{3}\-[0-9]{10}`)
+
 var errorLogger = log.New(os.Stderr, "ERROR ", log.Llongfile)
 
 type book struct {
@@ -21,6 +20,7 @@ type book struct {
     Price string `json:"price"`
 }
 
+//routing incoming requests
 func router(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
     switch req.HTTPMethod {
     case "GET":
@@ -33,10 +33,11 @@ func router(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, 
 }
 
 func show(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+
+    // Get the 'name' query string parameter from the request and validate it.
     name := req.QueryStringParameters["name"]
-    //if !nameRegexp.MatchString(name) {
-        //return clientError(http.StatusBadRequest)
-    //}
+
+    // Fetch the scratcher record from the database based on the name value.
     bk, err := getItem(name)
     if err != nil {
         return serverError(err)
@@ -44,16 +45,21 @@ func show(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, er
     if bk == nil {
         return clientError(http.StatusNotFound)
     }
+
+    // The APIGatewayProxyResponse.Body field needs to be a string, so marshal the scratcher record into JSON.
     js, err := json.Marshal(bk)
     if err != nil {
         return serverError(err)
     }
+
+    // Return a response with a 200 OK status and the JSON scratcher record as the body.
     return events.APIGatewayProxyResponse{
         StatusCode: http.StatusOK,
         Body:       string(js),
     }, nil
 }
 
+//Handling POST operation, including error checks
 func create(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) { 
     if req.Headers["content-type"] != "application/json" && req.Headers["Content-Type"] != "application/json" {
         return clientError(http.StatusNotAcceptable)
@@ -63,9 +69,6 @@ func create(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, 
     if err != nil {
         return clientError(http.StatusUnprocessableEntity)
     }
-    //if !nameRegexp.MatchString(bk.NAME) {
-      //  return clientError(http.StatusBadRequest)
-    //}
     if bk.Description == "" || bk.Size == "" || bk.Price == "" {
         return clientError(http.StatusBadRequest)
     }
@@ -79,6 +82,8 @@ func create(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, 
     }, nil
 }
 
+// A helper for handling errors. This logs any error to os.Stderr and returns a 500 Internal Server Error response that the AWS API
+// Gateway understands.
 func serverError(err error) (events.APIGatewayProxyResponse, error) {
     errorLogger.Println(err.Error())
     return events.APIGatewayProxyResponse{
@@ -87,6 +92,7 @@ func serverError(err error) (events.APIGatewayProxyResponse, error) {
     }, nil
 }
 
+// Similarly adding a helper for sending responses relating to client errors.
 func clientError(status int) (events.APIGatewayProxyResponse, error) {
     return events.APIGatewayProxyResponse{
         StatusCode: status,
